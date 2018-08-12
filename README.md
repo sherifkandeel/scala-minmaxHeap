@@ -1,54 +1,47 @@
-Part of our daily routine at Crealytics consist in efficiently
-processing time series of interest to us.  This process may
-involve computing local information within a rolling time
-window of length T, such as the number of points in the
-window, the  minimum or maximum, or the rolling sum.
+### Description:
+##### The problem: 
+The problem is to keep track of certain time window as a stream of events passes.
+Information to keep track of within a time window are:
+- The minimum value
+- Maximum value 
+- Number of events
+- Sum of the values
 
-An example is given below,  with T = 60 and :  
-•   Time: number of seconds since epoch  
-•   Value: price ratio (no unit)  
-•   N_O: number of observations in the current 
-    sliding time window  
-•   Roll_Sum: the current rolling sum,  
-•   Min_Value and Max_Value the minimum/maximum in the current window:
+##### The solution: 
+The solution is based on a simple [minmax heap](https://en.wikipedia.org/wiki/Min-max_heap) core, materialized in `MinMaxPriorityQueue` that keeps track  of the minimum node and maximum node in `O(1)` which makes it suitable for our solution.
 
-```
-   Time      Value  N_O Roll_Sum Min_Value Max_Value
----------------------------------------------------
-1355270609  1.80215  1  1.80215  1.80215  1.80215
-1355270621  1.80185  2  3.604    1.80185  1.80215
-1355270646  1.80195  3  5.40595  1.80185  1.80215
-1355270702  1.80225  2  3.6042   1.80195  1.80225
-1355270702  1.80215  3  5.40635  1.80195  1.80225
-1355270829  1.80235  1  1.80235  1.80235  1.80235
-1355270854  1.80205  2  3.6044   1.80205  1.80235
-1355270868  1.80225  3  5.40665  1.80205  1.80235
-1355271000  1.80245  1  1.80245  1.80245  1.80245
-1355271023  1.80285  2  3.6053   1.80245  1.80285
-1355271024  1.80275  3  5.40805  1.80245  1.80285
-1355271026  1.80285  4  7.2109   1.80245  1.80285
-1355271027  1.80265  5  9.01355  1.80245  1.80285
-1355271056  1.80275  6  10.8163  1.80245  1.80285
-1355271428  1.80265  1  1.80265  1.80265  1.80265
-1355271466  1.80275  2  3.6054   1.80265  1.80275
-1355271471  1.80295  3  5.40835  1.80265  1.80295
-1355271507  1.80265  3  5.40835  1.80265  1.80295
-1355271562  1.80275  2  3.6054   1.80265  1.80275
-1355271588  1.80295  2  3.6057   1.80275  1.80295
-```
+### Design 
+The Design consists of an `EventStore` that keeps track fo the current time window events, 
+and an iterator to go over the data lines of `data.txt`
+![](ArchDiagram.png)
 
-We would like you to implement a small Scala program
-which, given an input filename as a single argument,
-produces a table similar to the one above.
+The executor executes a `foreach` loop over the `iterator` where all the magic happens, as explained in the diagram:  
+![](SequenceLoop.png) 
 
-You may use any library or framework which you think is useful.
-By decreasing order, we are looking for correct, efficient,
-minimal and elegant -- yet fully functional code.
-Implementation choices of importance, should of course
-be documented.
+### Implementation
+I tried to keep the implementation clean and as close to real world as possible (however you can find simpler, one method solutions in earlier commits of the `gitbunlde` that almost does the job)
 
-Please send in your program, along with its output when
-run on data.txt, and the time it took you to write it.
+- Type safety is respected 
+- Models are bundled 
+- Logic outside the executor is kept to a minimum (except for the model(s) operations) 
+- Extensibility and future-proofing is considered
 
-Have fun!
-1
+libraries used: 
+- `Guava` (for `MinMaxPriorityQueue`)
+- `Specs2`, `ScalaMock` for testing purposes
+
+### Testing
+There are two types of tests: 
+- Unit tests
+- One E2E test (ExecutorTest)
+
+The Unit tests are standard unit tests that test individual functions within the model operations mainly.
+
+The E2E test tests how the executor will run against a subset of the problem (found in `test.txt` solution and truth is checked by asserting directly as String)
+
+### Performance Analysis
+A cold run against `data.txt` finishes in `5 seconds` on a standard 2015 macbook 13", with subsequent runs averaging at `2 seconds`
+
+time complexity analysis over code shows that the most time consuming operations are complete search operations (`sum` and `removeIf`) on the `heap` with complexity of `O(n)`
+
+
